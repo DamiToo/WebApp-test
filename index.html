@@ -1,53 +1,305 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Three.js Demo en GitHub Pages</title>
-  <style>
-    body { margin: 0; }
-    canvas { display: block; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Manager</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: var(--tg-theme-text-color, #000000);
+            margin-bottom: 10px;
+        }
+
+        .add-button {
+            background-color: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .add-button:hover {
+            opacity: 0.8;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--tg-theme-secondary-bg-color, #f8f9fa);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+        }
+
+        .data-table th {
+            background-color: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            font-weight: 600;
+        }
+
+        .data-table tr:hover {
+            background-color: var(--tg-theme-hint-color, #f0f0f0);
+        }
+
+        .editable-cell {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .editable-cell:hover {
+            background-color: var(--tg-theme-hint-color, #e8f4fd);
+        }
+
+        .cell-input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid var(--tg-theme-button-color, #0088cc);
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .empty-row {
+            background-color: var(--tg-theme-hint-color, #f9f9f9);
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        .save-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .cancel-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        @media (max-width: 600px) {
+            .data-table {
+                font-size: 14px;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
-<script type="module">
-  import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-  import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    <div class="container">
+        <div class="header">
+            <h1>📊 Database Manager</h1>
+            <p>Gestiona tus datos desde Telegram</p>
+        </div>
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x222222);
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.z = 5;
+        <button class="add-button" onclick="addNewRow()">
+            ➕ Añadir nuevo campo
+        </button>
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+        <div id="loading" class="loading">
+            Cargando datos...
+        </div>
 
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(5, 5, 5);
-  scene.add(light);
-  scene.add(new THREE.AmbientLight(0x404040));
+        <table class="data-table" id="dataTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Usuario</th>
+                    <th>Apellido</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- Los datos se cargarán aquí -->
+            </tbody>
+        </table>
+    </div>
 
-  const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(),
-    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-  );
-  scene.add(cube);
+    <script>
+        // Inicializar Telegram Web App
+        let tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-  const controls = new OrbitControls(camera, renderer.domElement);
+        // Datos simulados (en producción vendrían del backend)
+        let data = [
+            { id: 1, first_name: "Juan", username: "juan123", last_name: "Pérez" },
+            { id: 2, first_name: "María", username: "maria456", last_name: "García" },
+            { id: 3, first_name: "Carlos", username: "carlos789", last_name: "López" }
+        ];
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+        let editingCell = null;
 
-  (function animate() {
-    requestAnimationFrame(animate);
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
-    controls.update();
-    renderer.render(scene, camera);
-  })();
-</script>
+        // Cargar datos al iniciar
+        window.onload = function() {
+            setTimeout(() => {
+                loadData();
+            }, 1000);
+        };
+
+        function loadData() {
+            const loading = document.getElementById('loading');
+            const table = document.getElementById('dataTable');
+            
+            loading.style.display = 'none';
+            table.style.display = 'table';
+            
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            // Renderizar datos existentes
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="editable-cell" onclick="editCell(this, ${index}, 'id')">${row.id || ''}</td>
+                    <td class="editable-cell" onclick="editCell(this, ${index}, 'first_name')">${row.first_name || ''}</td>
+                    <td class="editable-cell" onclick="editCell(this, ${index}, 'username')">${row.username || ''}</td>
+                    <td class="editable-cell" onclick="editCell(this, ${index}, 'last_name')">${row.last_name || ''}</td>
+                    <td>
+                        <button class="cancel-button" onclick="deleteRow(${index})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Añadir 2 filas vacías
+            for (let i = 0; i < 2; i++) {
+                const tr = document.createElement('tr');
+                tr.className = 'empty-row';
+                tr.innerHTML = `
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'id')">Haz clic para añadir</td>
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'first_name')">Haz clic para añadir</td>
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'username')">Haz clic para añadir</td>
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'last_name')">Haz clic para añadir</td>
+                    <td>-</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        function editCell(cell, rowIndex, field) {
+            if (editingCell) return;
+
+            editingCell = cell;
+            const currentValue = rowIndex < data.length ? (data[rowIndex][field] || '') : '';
+            
+            cell.innerHTML = `
+                <input type="text" class="cell-input" value="${currentValue}" id="editInput">
+                <button class="save-button" onclick="saveCell(${rowIndex}, '${field}')">💾</button>
+                <button class="cancel-button" onclick="cancelEdit()">❌</button>
+            `;
+            
+            document.getElementById('editInput').focus();
+        }
+
+        function saveCell(rowIndex, field) {
+            const input = document.getElementById('editInput');
+            const newValue = input.value.trim();
+
+            if (rowIndex >= data.length) {
+                // Crear nueva fila
+                const newRow = { id: '', first_name: '', username: '', last_name: '' };
+                newRow[field] = newValue;
+                data.push(newRow);
+            } else {
+                // Actualizar fila existente
+                data[rowIndex][field] = newValue;
+            }
+
+            editingCell = null;
+            renderTable();
+            
+            // Aquí harías la llamada al backend para guardar en MongoDB
+            console.log('Guardando en BD:', { rowIndex, field, value: newValue });
+        }
+
+        function cancelEdit() {
+            editingCell = null;
+            renderTable();
+        }
+
+        function addNewRow() {
+            const newRow = { id: '', first_name: '', username: '', last_name: '' };
+            data.push(newRow);
+            renderTable();
+        }
+
+        function deleteRow(index) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta fila?')) {
+                data.splice(index, 1);
+                renderTable();
+                
+                // Aquí harías la llamada al backend para eliminar de MongoDB
+                console.log('Eliminando de BD:', index);
+            }
+        }
+
+        // Manejar eventos de Telegram
+        tg.onEvent('mainButtonClicked', function() {
+            tg.close();
+        });
+    </script>
 </body>
 </html>
