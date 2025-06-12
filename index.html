@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Manager</title>
+    <title>Mi Base de Datos Personal</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -16,34 +16,52 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
-            padding: 20px;
+            padding: 15px;
             min-height: 100vh;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 100%;
             margin: 0 auto;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--tg-theme-secondary-bg-color, #f8f9fa);
+            border-radius: 12px;
         }
 
         .header h1 {
             color: var(--tg-theme-text-color, #000000);
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+            font-size: 1.5em;
+        }
+
+        .header p {
+            color: var(--tg-theme-hint-color, #666666);
+            font-size: 0.9em;
+        }
+
+        .user-info {
+            background-color: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.85em;
         }
 
         .add-button {
             background-color: var(--tg-theme-button-color, #0088cc);
             color: var(--tg-theme-button-text-color, #ffffff);
             border: none;
-            padding: 12px 24px;
+            padding: 12px 20px;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             width: 100%;
         }
 
@@ -58,11 +76,12 @@
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 13px;
         }
 
         .data-table th,
         .data-table td {
-            padding: 12px;
+            padding: 8px;
             text-align: left;
             border-bottom: 1px solid var(--tg-theme-hint-color, #e0e0e0);
         }
@@ -71,6 +90,7 @@
             background-color: var(--tg-theme-button-color, #0088cc);
             color: var(--tg-theme-button-text-color, #ffffff);
             font-weight: 600;
+            font-size: 12px;
         }
 
         .data-table tr:hover {
@@ -80,6 +100,10 @@
         .editable-cell {
             cursor: pointer;
             position: relative;
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .editable-cell:hover {
@@ -88,10 +112,10 @@
 
         .cell-input {
             width: 100%;
-            padding: 8px;
+            padding: 4px;
             border: 2px solid var(--tg-theme-button-color, #0088cc);
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 12px;
             background-color: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
         }
@@ -106,22 +130,22 @@
             background-color: #28a745;
             color: white;
             border: none;
-            padding: 6px 12px;
+            padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 10px;
             cursor: pointer;
-            margin-left: 8px;
+            margin-left: 4px;
         }
 
         .cancel-button {
             background-color: #dc3545;
             color: white;
             border: none;
-            padding: 6px 12px;
+            padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 10px;
             cursor: pointer;
-            margin-left: 4px;
+            margin-left: 2px;
         }
 
         .loading {
@@ -130,14 +154,23 @@
             color: var(--tg-theme-hint-color, #999999);
         }
 
-        @media (max-width: 600px) {
+        .actions-column {
+            width: 60px;
+            text-align: center;
+        }
+
+        @media (max-width: 400px) {
             .data-table {
-                font-size: 14px;
+                font-size: 11px;
             }
             
             .data-table th,
             .data-table td {
-                padding: 8px;
+                padding: 6px 4px;
+            }
+
+            .editable-cell {
+                max-width: 60px;
             }
         }
     </style>
@@ -145,12 +178,16 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 Database Manager</h1>
-            <p>Gestiona tus datos desde Telegram</p>
+            <h1>🗄️ Mi Base de Datos</h1>
+            <p>Gestiona tus datos personales</p>
+        </div>
+
+        <div class="user-info" id="userInfo">
+            Cargando información del usuario...
         </div>
 
         <button class="add-button" onclick="addNewRow()">
-            ➕ Añadir nuevo campo
+            ➕ Añadir nuevo registro
         </button>
 
         <div id="loading" class="loading">
@@ -164,7 +201,7 @@
                     <th>Nombre</th>
                     <th>Usuario</th>
                     <th>Apellido</th>
-                    <th>Acciones</th>
+                    <th class="actions-column">🔧</th>
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -179,21 +216,33 @@
         tg.ready();
         tg.expand();
 
+        // Obtener parámetros de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const dbName = urlParams.get('db');
+        const userId = urlParams.get('user_id');
+
         // Datos simulados (en producción vendrían del backend)
         let data = [
-            { id: 1, first_name: "Juan", username: "juan123", last_name: "Pérez" },
-            { id: 2, first_name: "María", username: "maria456", last_name: "García" },
-            { id: 3, first_name: "Carlos", username: "carlos789", last_name: "López" }
+            { id: userId, first_name: "Tu nombre", username: "tu_usuario", last_name: "Tu apellido", tipo: "usuario_telegram" }
         ];
 
         let editingCell = null;
 
         // Cargar datos al iniciar
         window.onload = function() {
+            mostrarInfoUsuario();
             setTimeout(() => {
                 loadData();
             }, 1000);
         };
+
+        function mostrarInfoUsuario() {
+            const userInfo = document.getElementById('userInfo');
+            userInfo.innerHTML = `
+                👤 Usuario ID: ${userId}<br>
+                🗄️ Base de datos: ${dbName}
+            `;
+        }
 
         function loadData() {
             const loading = document.getElementById('loading');
@@ -217,8 +266,8 @@
                     <td class="editable-cell" onclick="editCell(this, ${index}, 'first_name')">${row.first_name || ''}</td>
                     <td class="editable-cell" onclick="editCell(this, ${index}, 'username')">${row.username || ''}</td>
                     <td class="editable-cell" onclick="editCell(this, ${index}, 'last_name')">${row.last_name || ''}</td>
-                    <td>
-                        <button class="cancel-button" onclick="deleteRow(${index})">🗑️</button>
+                    <td class="actions-column">
+                        <button class="cancel-button" onclick="deleteRow(${index})" title="Eliminar">🗑️</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -229,11 +278,11 @@
                 const tr = document.createElement('tr');
                 tr.className = 'empty-row';
                 tr.innerHTML = `
-                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'id')">Haz clic para añadir</td>
-                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'first_name')">Haz clic para añadir</td>
-                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'username')">Haz clic para añadir</td>
-                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'last_name')">Haz clic para añadir</td>
-                    <td>-</td>
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'id')">Clic aquí</td>
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'first_name')">Clic aquí</td>
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'username')">Clic aquí</td>
+                    <td class="editable-cell" onclick="editCell(this, ${data.length + i}, 'last_name')">Clic aquí</td>
+                    <td class="actions-column">-</td>
                 `;
                 tbody.appendChild(tr);
             }
@@ -247,8 +296,8 @@
             
             cell.innerHTML = `
                 <input type="text" class="cell-input" value="${currentValue}" id="editInput">
-                <button class="save-button" onclick="saveCell(${rowIndex}, '${field}')">💾</button>
-                <button class="cancel-button" onclick="cancelEdit()">❌</button>
+                <button class="save-button" onclick="saveCell(${rowIndex}, '${field}')" title="Guardar">💾</button>
+                <button class="cancel-button" onclick="cancelEdit()" title="Cancelar">❌</button>
             `;
             
             document.getElementById('editInput').focus();
@@ -260,7 +309,7 @@
 
             if (rowIndex >= data.length) {
                 // Crear nueva fila
-                const newRow = { id: '', first_name: '', username: '', last_name: '' };
+                const newRow = { id: '', first_name: '', username: '', last_name: '', tipo: 'manual' };
                 newRow[field] = newValue;
                 data.push(newRow);
             } else {
@@ -272,7 +321,14 @@
             renderTable();
             
             // Aquí harías la llamada al backend para guardar en MongoDB
-            console.log('Guardando en BD:', { rowIndex, field, value: newValue });
+            console.log('Guardando en BD:', { db: dbName, rowIndex, field, value: newValue });
+            
+            // Mostrar feedback visual
+            tg.showPopup({
+                title: "Guardado",
+                message: "Datos guardados correctamente",
+                buttons: [{type: "ok"}]
+            });
         }
 
         function cancelEdit() {
@@ -281,25 +337,14 @@
         }
 
         function addNewRow() {
-            const newRow = { id: '', first_name: '', username: '', last_name: '' };
+            const newRow = { id: '', first_name: '', username: '', last_name: '', tipo: 'manual' };
             data.push(newRow);
             renderTable();
         }
 
         function deleteRow(index) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta fila?')) {
-                data.splice(index, 1);
-                renderTable();
-                
-                // Aquí harías la llamada al backend para eliminar de MongoDB
-                console.log('Eliminando de BD:', index);
-            }
-        }
-
-        // Manejar eventos de Telegram
-        tg.onEvent('mainButtonClicked', function() {
-            tg.close();
-        });
-    </script>
-</body>
-</html>
+            if (data[index].tipo === 'usuario_telegram') {
+                tg.showPopup({
+                    title: "Error",
+                    message: "No puedes eliminar tu registro de usuario de Telegram",
+                    buttons: [{type: "ok"}]
